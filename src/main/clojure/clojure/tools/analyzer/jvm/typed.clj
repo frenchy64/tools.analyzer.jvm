@@ -358,6 +358,55 @@
             :skip-check? Boolean
             :children Children})
 
+;       --- start analyze-host-expr pass ---
+      ;maybe-instance-method / analyze-host-call
+      (HMap :mandatory
+            {:op ':instance-call
+             :form Form
+             :env Env
+             :tag t/Symbol
+             :o-tag t/Symbol
+             :instance Expr
+             :method t/Symbol
+             :class t/Symbol
+             :children Children}
+            :optional
+            {:args (t/Vec Expr)}) ;absent in maybe-instance-method
+      ;maybe-static-method / analyze-host-call
+      (HMap :mandatory
+            {:op ':static-call
+             :form Form
+             :env Env
+             :tag t/Symbol
+             :o-tag t/Symbol
+             :class t/Symbol
+             :method t/Symbol}
+            :optional
+            {:args (t/Vec Expr)}) ; absent in maybe-static-method
+      ;maybe-static-field / analyze-host-field
+      (HMap :mandatory
+            {:op ':static-field
+             :form Form
+             :env Env
+             :assignable? Boolean
+             :class t/Symbol
+             :field t/Symbol
+             :o-tag t/Symbol
+             :tag t/Symbol})
+      ;maybe-instance-field / analyze-host-field
+      (HMap :mandatory
+            {:op ':static-field
+             :form Form
+             :env Env
+             :assignable? Boolean
+             :class t/Symbol
+             :instance Expr
+             :field t/Symbol
+             :o-tag t/Symbol
+             :tag t/Symbol
+             :children Children})
+;       --- end analyze-host-expr pass ---
+
 ; ---- end tools.analyzer.jvm specific ----
 
 )))
