@@ -8,6 +8,8 @@
 
 (ns clojure.tools.analyzer.jvm
   "Analyzer for clojure code, extends tools.analyzer with JVM specific passes/forms"
+  {:lang :core.typed
+   :core.typed {:features #{:runtime-infer}}}
   (:refer-clojure :exclude [macroexpand-1 macroexpand])
   (:require [clojure.tools.analyzer
              :as ana
@@ -44,7 +46,8 @@
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as readers]
 
-            [clojure.core.memoize :refer [memo-clear!]])
+            [clojure.core.memoize :refer [memo-clear!]]
+            [clojure.core.typed :as t])
   (:import (clojure.lang IObj RT Compiler Var)
            java.net.URL))
 

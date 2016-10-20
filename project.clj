@@ -5,7 +5,10 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :source-paths ["src/main/clojure"]
   :test-paths ["src/test/clojure"]
-  :dependencies [[org.clojure/clojure "1.9.0-master-SNAPSHOT"]
+  :injections [(require 'clojure.core.typed)
+               (clojure.core.typed/install #{:load})]
+  :dependencies [[org.clojure/clojure "1.9.0-alpha13"]
+                 [org.clojure/core.typed "0.3.29-SNAPSHOT"]
                  [org.clojure/core.memoize "0.5.9"]
                  [org.clojure/tools.reader "1.0.0-beta2"]
                  [org.clojure/tools.analyzer "0.6.9"]

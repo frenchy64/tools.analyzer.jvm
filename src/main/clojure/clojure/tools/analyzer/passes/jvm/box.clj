@@ -7,11 +7,14 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.tools.analyzer.passes.jvm.box
+  {:lang :core.typed
+   :core.typed {:features #{:runtime-infer}}}
   (:require [clojure.tools.analyzer.jvm.utils :as u]
             [clojure.tools.analyzer.utils :refer [protocol-node? arglist-for-arity]]
             [clojure.tools.analyzer.passes.jvm
              [validate :refer [validate]]
-             [infer-tag :refer [infer-tag]]]))
+             [infer-tag :refer [infer-tag]]]
+            [clojure.core.typed :as t]))
 
 (defmulti box
   "Box the AST node tag where necessary"
