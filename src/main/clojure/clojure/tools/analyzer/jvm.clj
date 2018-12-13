@@ -447,6 +447,13 @@
    default bindings for tools.analyzer, useful to provide custom extension points.
    If provided, :passes-opts should be a map of pass-name-kw->pass-config-map pairs that
    can be used to configure the behaviour of each pass.
+  
+   All management of `*ns*` should be done by callers. For example, analyze macroexpands
+   code so can potentially run arbitrary code that might change `*ns*` -- if that is problematic,
+   you should bind *ns* around calls to `analyze`.
+   Similarly, if you want your code to be more robust in the absence of macroexpansion
+   side effects (perhaps to ensure AOT-compilation compatibility), then it might be help to
+   bind *ns*.
 
    E.g.
    (analyze form env {:bindings  {#'ana/macroexpand-1 my-mexpand-1}})"
@@ -461,7 +468,24 @@
                             #'elides            (merge {:fn    #{:line :column :end-line :end-column :file :source}
                                                         :reify #{:line :column :end-line :end-column :file :source}}
                                                        elides)
-                            #'*ns*              (the-ns (:ns env))}
+                            ; We should always allow changes to *ns* during macroexpansion to percolate up.
+                            ; for example, if analyze+eval is called like
+                            ;
+                            ;   (analyze+eval '(do (let* []
+                            ;                        (change-to-clojure-repl-on-mexpand))
+                            ;                      (demunge "a")))
+                            ;
+                            ; where 
+                            ;
+                            ;   (defmacro change-to-clojure-repl-on-mexpand []
+                            ;     (require 'clojure.repl)
+                            ;     (in-ns 'clojure.repl)
+                            ;     nil)
+                            ;
+                            ; then if *ns* is rebound (here, in `analyze`) then the `(demunge "a")` call
+                            ; will be analyzed in the wrong *ns*.
+                            ;#'*ns*              (the-ns (:ns env))
+                            }
                            (:bindings opts))
        (env/ensure (global-env)
          (doto (env/with-env (mmerge (env/deref-env)
@@ -488,7 +512,9 @@
 
    Unrolls `do` forms to handle the Gilardi scenario.
 
-   Useful when analyzing whole files/namespaces."
+   Useful when analyzing whole files/namespaces.
+  
+   If provided, assumes (:ns env) is consistent with *ns*."
   ([form] (analyze+eval form (empty-env) {}))
   ([form env] (analyze+eval form env {}))
   ([form env {:keys [handle-evaluation-exception]
@@ -497,20 +523,22 @@
      (env/ensure (global-env)
        (update-ns-map!)
        (let [env (merge env (-source-info form env))
-             [mform raw-forms] (with-bindings {Compiler/LOADER     (RT/makeClassLoader)
-                                               #'*ns*              (the-ns (:ns env))
-                                               #'ana/macroexpand-1 (get-in opts [:bindings #'ana/macroexpand-1] macroexpand-1)}
-                                 (loop [form form raw-forms []]
-                                   (let [mform (ana/macroexpand-1 form env)]
-                                     (if (= mform form)
-                                       [mform (seq raw-forms)]
-                                       (recur mform (conj raw-forms
-                                                          (if-let [[op & r] (and (seq? form) form)]
-                                                            (if (or (u/macro? op  env)
-                                                                    (u/inline? op r env))
-                                                              (vary-meta form assoc ::ana/resolved-op (resolve-sym op env))
-                                                              form)
-                                                            form)))))))]
+             [mform raw-forms env] (with-bindings {Compiler/LOADER     (RT/makeClassLoader)
+                                                   #'ana/macroexpand-1 (get-in opts [:bindings #'ana/macroexpand-1] macroexpand-1)}
+                                     (loop [form form raw-forms [] env env]
+                                       (let [mform (ana/macroexpand-1 form env)
+                                             env (assoc env :ns (ns-name *ns*))]
+                                         ;(update-ns-map!)
+                                         (if (= mform form)
+                                           [mform (seq raw-forms) env]
+                                           (recur mform (conj raw-forms
+                                                              (if-let [[op & r] (and (seq? form) form)]
+                                                                (if (or (u/macro? op env)
+                                                                        (u/inline? op r env))
+                                                                  (vary-meta form assoc ::ana/resolved-op (resolve-sym op env))
+                                                                  form)
+                                                                form))
+                                                  env)))))]
          (if (and (seq? mform) (= 'do (first mform)) (next mform))
            ;; handle the Gilardi scenario
            (let [[statements ret] (butlast+last (rest mform))
@@ -519,7 +547,7 @@
                                                                 (assoc :ns (ns-name *ns*)))
                                                             opts))
                                        statements)
-                 ret-expr (analyze+eval ret (assoc env :ns (ns-name *ns*)) opts)]
+                 ret-expr (analyze+eval ret env opts)]
              {:op         :do
               :top-level  true
               :form       mform
