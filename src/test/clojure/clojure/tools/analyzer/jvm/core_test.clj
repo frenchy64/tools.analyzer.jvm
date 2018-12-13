@@ -162,6 +162,7 @@
   (is (string? (:result
                  (chk `(my-body (change-to-clojure-repl-on-mexpand)
                                 (~'demunge "a"))))))
+  ; FIXME this should evaluate to "a", as you can see from the test below it
   (is (thrown-with-msg?
         clojure.lang.ExceptionInfo
         #"Could not resolve var: demunge"
@@ -169,6 +170,10 @@
                    (chk `(let* []
                            (my-body (change-to-clojure-repl-on-mexpand)
                                     (~'demunge "a"))))))))
+  (is (= "a" (eval-in-fresh-ns `(let* []
+                                  (my-body (change-to-clojure-repl-on-mexpand)
+                                           (~'demunge "a"))))))
+  ; FIXME this should evaluate to "a", as you can see from the test below it
   (is (thrown-with-msg?
         clojure.lang.ExceptionInfo
         #"Could not resolve var: demunge"
@@ -179,9 +184,6 @@
   (is (= "a" (eval-in-fresh-ns `(let* []
                                   (do (change-to-clojure-repl-on-mexpand)
                                       (~'demunge "a"))))))
-  (is (= "a" (eval-in-fresh-ns `(let* []
-                                  (my-body (change-to-clojure-repl-on-mexpand)
-                                           (~'demunge "a"))))))
   (is (string? (eval-in-fresh-ns `(do (let* []
                                         (change-to-clojure-repl-on-mexpand))
                                       (~'demunge "a")))))
